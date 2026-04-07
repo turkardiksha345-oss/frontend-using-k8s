@@ -46,9 +46,9 @@ kind: Service
 metadata:
   name: frontend-service
 spec:
-  clusterIP: None   
+  clusterIP: None
   selector:
-    app: frontend
+    app: frontend-app
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 3000
