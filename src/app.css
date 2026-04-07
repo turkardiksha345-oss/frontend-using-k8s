@@ -1,0 +1,20 @@
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f172a;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.card {
+  background: #1e293b;
+  padding: 40px;
+  color: white;
+  border-radius: 10px;
+  text-align: center;
+}
