@@ -7,18 +7,18 @@ spec:
   replicas: 2
   selector:
     matchLabels:
-      app: frontend
+      app: frontend-app
   template:
     metadata:
       labels:
-        app: frontend
+        app: frontend-app
     spec:
       containers:
         - name: frontend
           image: frontend-app:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 80
+            - containerPort: 80   # ✅ fixed
           resources:
             requests:
               cpu: "100m"
@@ -35,10 +35,6 @@ spec:
           requests:
             storage: 1Gi
 
-
-
-
-
 ---
 
 apiVersion: v1
@@ -46,9 +42,9 @@ kind: Service
 metadata:
   name: frontend-service
 spec:
-  clusterIP: None
+  clusterIP: None   # ✅ required for StatefulSet
   selector:
-    app: frontend-app
+    app: frontend-app   # ✅ fixed label
   ports:
     - port: 80
-      targetPort: 3000
+      targetPort: 80    # ✅ fixed port
