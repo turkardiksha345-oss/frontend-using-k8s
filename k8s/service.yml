@@ -3,9 +3,11 @@ kind: Service
 metadata:
   name: frontend-service
 spec:
+  type: NodePort
   selector:
-    app: frontend
+    app: frontend-app   # MUST match deployment labels
   ports:
-    - port: 80
-      targetPort: 80
-  type: LoadBalancer
+    - protocol: TCP
+      port: 80          # Service port
+      targetPort: 3000  # Your app container port (React/Node usually 3000)
+      nodePort: 30007   # Exposed port on host

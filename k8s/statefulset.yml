@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: dikshat1024/frontend-app:latest
-          imagePullPolicy: Never
+          image: frontend-app:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           resources:
