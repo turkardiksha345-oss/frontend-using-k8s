@@ -6,9 +6,8 @@ spec:
   scaleTargetRef:
     name: frontend
   minReplicaCount: 1
-  maxReplicaCount: 10
+  maxReplicaCount: 5
   triggers:
     - type: cpu
       metadata:
-        type: Utilization
-        value: "70"
+        value: "50"
