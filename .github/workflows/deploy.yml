@@ -1,4 +1,4 @@
-name: Full DevOps Pipeline
+name: Full DevOps Pipeline (KIND + K8s + KEDA)
 
 on:
   push:
@@ -15,25 +15,32 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # 🔹 2. Install Docker
+    # 🔹 2. Install Docker (FIXED VERSION ✅)
     - name: Install Docker
-      run: sudo apt-get update && sudo apt-get install -y docker.io
+      run: |
+        sudo apt-get remove -y containerd || true
+        sudo apt-get update
+        sudo apt-get install -y docker.io
 
-    # 🔹 3. Install kubectl
+    # 🔹 3. Verify Docker
+    - name: Verify Docker
+      run: docker --version
+
+    # 🔹 4. Install kubectl
     - name: Install kubectl
       run: |
         curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
 
-    # 🔹 4. Install KIND
+    # 🔹 5. Install KIND
     - name: Install KIND
       run: |
         curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
         chmod +x kind
         sudo mv kind /usr/local/bin/
 
-    # 🔹 5. Create KIND Cluster
+    # 🔹 6. Create KIND Cluster
     - name: Create KIND Cluster
       run: |
         cat <<EOF > kind-config.yml
@@ -41,28 +48,40 @@ jobs:
         apiVersion: kind.x-k8s.io/v1alpha4
         nodes:
         - role: control-plane
+          extraPortMappings:
+          - containerPort: 30007
+            hostPort: 30007
         EOF
         kind create cluster --name ci-cluster --config kind-config.yml
 
-    # 🔹 6. Build Docker Image
+    # 🔹 7. Install Ingress Controller
+    - name: Install NGINX Ingress
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=120s
+
+    # 🔹 8. Build Docker Image
     - name: Build Docker Image
       run: docker build -t frontend-app:latest .
 
-    # 🔹 7. Load Image into KIND
+    # 🔹 9. Load Image into KIND
     - name: Load Image into KIND
       run: kind load docker-image frontend-app:latest --name ci-cluster
 
-    # 🔹 8. Install KEDA
+    # 🔹 10. Install KEDA
     - name: Install KEDA
       run: |
         kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.14.0/keda-2.14.0.yaml
 
-    # 🔹 9. Wait for KEDA
+    # 🔹 11. Wait for KEDA
     - name: Wait for KEDA
       run: |
-        kubectl wait --for=condition=available deployment/keda-operator -n keda --timeout=120s
+        kubectl wait --for=condition=available deployment/keda-operator -n keda --timeout=180s
 
-    # 🔹 10. Deploy Application
+    # 🔹 12. Deploy Application
     - name: Deploy K8s Resources
       run: |
         kubectl apply -f k8s/deployment.yml
@@ -70,13 +89,22 @@ jobs:
         kubectl apply -f k8s/frontend-nodeport.yml
         kubectl apply -f k8s/ingress.yml
 
-    # 🔹 11. Apply Autoscaling
+    # 🔹 13. Apply Autoscaling
     - name: Apply KEDA Autoscaling
       run: kubectl apply -f k8s/autoscaling-keda.yml
 
-    # 🔹 12. Verify Deployment
-    - name: Verify Pods
-      run: kubectl get pods
+    # 🔹 14. Wait for Pods
+    - name: Wait for Pods Ready
+      run: |
+        kubectl wait --for=condition=ready pod \
+        --all --timeout=180s
 
-    - name: Verify Services
+    # 🔹 15. Debug Info (VERY IMPORTANT)
+    - name: Debug Pods
+      run: kubectl get pods -o wide
+
+    - name: Debug Services
       run: kubectl get svc
+
+    - name: Debug Ingress
+      run: kubectl get ingress
