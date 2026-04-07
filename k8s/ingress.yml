@@ -4,8 +4,7 @@ metadata:
   name: frontend-ingress
 spec:
   rules:
-    - host: myapp.local
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
