@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: your-dockerhub/frontend-app:latest
+          image: dikshat1024/frontend-app:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
