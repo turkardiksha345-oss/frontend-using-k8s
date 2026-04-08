@@ -1,4 +1,4 @@
-name: Full DevOps Pipeline (KIND + K8s + KEDA + Ingress)
+name: Full DevOps Pipeline (KIND + K8s + KEDA + Monitoring)
 
 on:
   push:
@@ -57,19 +57,18 @@ jobs:
         EOF
         kind create cluster --name ci-cluster --config kind-config.yml
 
-    # 🔹 7. Install NGINX Ingress (FIXED)
-    - name: Install Ingress Controller
+    # 🔹 7. Install Ingress Controller (FIXED)
+    - name: Install Ingress
       run: |
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        echo "Waiting for ingress controller..."
         kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
-    # 🔹 8. Install Helm (Required for KEDA)
+    # 🔹 8. Install Helm
     - name: Install Helm
       run: |
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-    # 🔹 9. Install KEDA (FIXED via Helm)
+    # 🔹 9. Install KEDA (Helm FIX)
     - name: Install KEDA
       run: |
         helm repo add kedacore https://kedacore.github.io/charts
@@ -81,15 +80,29 @@ jobs:
       run: |
         kubectl rollout status deployment keda-operator -n keda --timeout=300s
 
-    # 🔹 11. Build Docker Image
+    # 🔹 11. Install Monitoring (Prometheus + Grafana)
+    - name: Install Monitoring
+      run: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        helm install monitoring prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          --create-namespace
+
+    # 🔹 12. Wait for Monitoring
+    - name: Wait for Monitoring
+      run: |
+        kubectl rollout status deployment monitoring-kube-prometheus-operator -n monitoring --timeout=300s
+
+    # 🔹 13. Build Docker Image
     - name: Build Docker Image
       run: docker build -t frontend-app:latest .
 
-    # 🔹 12. Load Image into KIND
+    # 🔹 14. Load Image into KIND
     - name: Load Image into KIND
       run: kind load docker-image frontend-app:latest --name ci-cluster
 
-    # 🔹 13. Deploy Kubernetes Resources
+    # 🔹 15. Deploy Application
     - name: Deploy K8s Resources
       run: |
         kubectl apply -f k8s/deployment.yml
@@ -97,16 +110,16 @@ jobs:
         kubectl apply -f k8s/frontend-nodeport.yml
         kubectl apply -f k8s/ingress.yml
 
-    # 🔹 14. Apply Autoscaling
+    # 🔹 16. Apply Autoscaling
     - name: Apply KEDA Autoscaling
       run: kubectl apply -f k8s/autoscaling-keda.yml
 
-    # 🔹 15. Wait for Pods Ready
+    # 🔹 17. Wait for Pods Ready
     - name: Wait for Pods
       run: |
         kubectl wait --for=condition=ready pod --all --timeout=300s
 
-    # 🔹 16. Debug Info (IMPORTANT)
+    # 🔹 18. Debug Info (IMPORTANT)
     - name: Check Pods
       run: kubectl get pods -o wide
 
@@ -115,3 +128,6 @@ jobs:
 
     - name: Check Ingress
       run: kubectl get ingress
+
+    - name: Check Monitoring
+      run: kubectl get pods -n monitoring
